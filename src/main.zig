@@ -78,26 +78,26 @@ pub fn main() !void {
     for (e_ident[padding_bytes..]) |b| {
         if (b != 0x0) unreachable;
     }
-
-    if (e_ident[elf.EI_CLASS] == elf.ELFCLASS64) {
-        std.debug.print("64 bit elf header size: {d}\n", .{@sizeOf(elf.Elf64_Ehdr)});
-        const header = try readHeader(elf.Elf64_Ehdr, file);
-        std.debug.print("{x} \n", .{header.e_ident});
-    } else if (e_ident[elf.EI_CLASS] == elf.ELFCLASS32) {
-        std.debug.print("32 bit elf header size: {d}\n", .{@sizeOf(elf.Elf32_Ehdr)});
-        const header = try readHeader(elf.Elf32_Ehdr, file);
-        std.debug.print("{x} \n", .{header.e_ident});
-    }
 }
 
-pub fn readHeader(comptime T: type, elf_file: std.fs.File) !T {
-    const size = @sizeOf(T);
-    var buffer: [size]u8 = undefined;
-
-    try elf_file.seekTo(0);
-    const readBytes = try elf_file.readAll(&buffer);
-    assert(readBytes == size);
-
-    const elf_header: *T = @ptrCast(@alignCast(&buffer));
-    return elf_header.*;
-}
+// if (e_ident[elf.EI_CLASS] == elf.ELFCLASS64) {
+//     std.debug.print("64 bit elf header size: {d}\n", .{@sizeOf(elf.Elf64_Ehdr)});
+//     const header = try readHeader(elf.Elf64_Ehdr, file);
+//     std.debug.print("{x} \n", .{header.e_ident});
+// } else if (e_ident[elf.EI_CLASS] == elf.ELFCLASS32) {
+//     std.debug.print("32 bit elf header size: {d}\n", .{@sizeOf(elf.Elf32_Ehdr)});
+//     const header = try readHeader(elf.Elf32_Ehdr, file);
+//     std.debug.print("{x} \n", .{header.e_ident});
+// }
+//
+// pub fn readHeader(comptime T: type, elf_file: std.fs.File) !T {
+//     const size = @sizeOf(T);
+//     var buffer: [size]u8 = undefined;
+//
+//     try elf_file.seekTo(0);
+//     const readBytes = try elf_file.readAll(&buffer);
+//     assert(readBytes == size);
+//
+//     const elf_header: *T = @ptrCast(@alignCast(&buffer));
+//     return elf_header.*;
+// }
