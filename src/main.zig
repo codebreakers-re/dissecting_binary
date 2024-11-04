@@ -36,17 +36,43 @@ pub fn main() !void {
 
     assert(is_elf(e_ident));
 
-    const res = try ElfReader(elf.Elf64_Ehdr).init(file, allocator);
+    var res: ElfReader = undefined;
+
+    switch (e_ident[elf.EI_CLASS]) {
+        elf.ELFCLASS64 => {
+            const bit64 = try ElfFile(elf.Elf64_Ehdr).init(file, allocator);
+            res = ElfReader{ .bit64 = bit64 };
+        },
+        elf.ELFCLASS32 => {
+            const bit32 = try ElfFile(elf.Elf32_Ehdr).init(file, allocator);
+            res = ElfReader{ .bit32 = bit32 };
+        },
+        else => unreachable,
+    }
+
     defer res.free();
 
-    const sectionHeaders = res.sectionHeaders;
-    const programHeaders = res.programHeaders;
-
-    std.debug.print("Sections {d}\n", .{sectionHeaders.len});
-    std.debug.print("Program Headers {d}\n", .{programHeaders.len});
+    res.print_header();
 }
 
-pub fn ElfReader(comptime T: type) type {
+const ElfReader = union(enum) {
+    bit32: ElfFile(elf.Elf32_Ehdr),
+    bit64: ElfFile(elf.Elf64_Ehdr),
+
+    pub fn free(self: ElfReader) void {
+        switch (self) {
+            inline else => |case| return case.free(),
+        }
+    }
+
+    pub fn print_header(self: ElfReader) void {
+        switch (self) {
+            inline else => |case| return case.print_header(),
+        }
+    }
+};
+
+pub fn ElfFile(comptime T: type) type {
     const S: type = comptime switch (@typeName(T)) {
         @typeName(elf.Elf64_Ehdr) => elf.Elf64_Shdr,
         @typeName(elf.Elf32_Ehdr) => elf.Elf32_Shdr,
@@ -98,6 +124,45 @@ pub fn ElfReader(comptime T: type) type {
             self.allocator.free(self.sectionHeaders);
             self.allocator.free(self.programHeaders);
         }
+
+        pub fn print_header(self: Self) void {
+            const info = e_ident_info(self.header.e_ident);
+
+            const et_type = getType(self.header.e_type);
+            const machine = getMachine(self.header.e_machine);
+            if (is64Bit) {
+                // const header: elf.Elf64_Ehdr = self.header;
+                // header.e_machine
+            } else {
+                // const header: elf.Elf32_Ehdr = self.header;
+            }
+
+            std.debug.print("This is an {s} Elf File, with {s} encoding of version: {s} \n", .{ info.class, info.endianness, info.elfVersion });
+            std.debug.print("The is an {s} and runs on a {s} CPU \n", .{ et_type, machine });
+        }
+
+        fn e_ident_info(e_ident: [16]u8) struct { class: [*:0]const u8, endianness: [*:0]const u8, elfVersion: [*:0]const u8 } {
+            const elfClass = switch (e_ident[elf.EI_CLASS]) {
+                elf.ELFCLASSNONE => "None",
+                elf.ELFCLASS32 => "32 Bit",
+                elf.ELFCLASS64 => "64 Bit",
+                else => unreachable,
+            };
+
+            const elfData = switch (e_ident[elf.EI_DATA]) {
+                elf.ELFDATANONE => "None",
+                elf.ELFDATA2LSB => "LSB",
+                elf.ELFDATA2MSB => "MSB",
+                else => unreachable,
+            };
+
+            const elfVersion = switch (e_ident[elf.EI_VERSION]) {
+                elf.EV_CURRENT => "1",
+                else => unreachable,
+            };
+
+            return .{ .class = elfClass, .endianness = elfData, .elfVersion = elfVersion };
+        }
     };
 }
 
@@ -138,6 +203,7 @@ pub fn readSequenceOfStruct(comptime T: type, elf_file: std.fs.File, initial_loc
     }
     return mem;
 }
+
 pub fn readStruct(comptime T: type, elf_file: std.fs.File, location: u64) !T {
     const size = @sizeOf(T);
     var buffer: [size]u8 = undefined;
@@ -148,6 +214,22 @@ pub fn readStruct(comptime T: type, elf_file: std.fs.File, location: u64) !T {
 
     const elf_header: *T = @ptrCast(@alignCast(&buffer));
     return elf_header.*;
+}
+
+pub fn getType(e_type: u16) [*:0]const u8 {
+    return switch (e_type) {
+        elf.ET_NONE => "No file type",
+        elf.ET_REL => "Relocatable file",
+        elf.ET_EXEC => "Executable file",
+        elf.ET_DYN => "Shared object file",
+        elf.ET_CORE => "Core file",
+        elf.ET_NUM => "Number of defined types",
+        elf.ET_LOOS => "OS-specific range start",
+        elf.ET_HIOS => "OS-specific range end",
+        elf.ET_LOPROC => "Processor-specific range start",
+        elf.ET_HIPROC => "Processor-specific range end",
+        else => unreachable,
+    };
 }
 
 pub fn getMachine(e_machine: u16) [*:0]const u8 {
