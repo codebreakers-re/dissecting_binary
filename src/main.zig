@@ -16,20 +16,28 @@ pub fn main() !void {
     }
 
     var args = try std.process.argsWithAllocator(allocator);
-    var path: []const u8 = undefined;
 
     var index: u32 = 0;
 
-    while (args.next()) |arg| : (index += 1) {
-        std.debug.print("Order {d} Args: {s} \n", .{ index, arg });
-        if (index == 1) {
-            path = arg;
+    const path: []const u8 = blk: {
+        while (args.next()) |arg| : (index += 1) {
+            std.debug.print("Order {d} Args: {s} \n", .{ index, arg });
+            if (index == 1) {
+                break :blk arg;
+            }
         }
-    }
+        unreachable;
+    };
 
     std.debug.print("{s} \n", .{path});
 
-    const file = try (if (std.fs.path.isAbsolute(path)) std.fs.openFileAbsolute(path, .{ .mode = .read_only }) else std.fs.cwd().openFile(path, .{ .mode = .read_only }));
+    const file = blk: {
+        if (std.fs.path.isAbsolute(path)) {
+            break :blk try std.fs.openFileAbsolute(path, .{ .mode = .read_only });
+        } else {
+            break :blk try std.fs.cwd().openFile(path, .{ .mode = .read_only });
+        }
+    };
 
     defer file.close();
 
