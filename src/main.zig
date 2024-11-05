@@ -101,22 +101,17 @@ pub fn ElfFile(comptime T: type) type {
             assert(is_elf(e_ident));
 
             var header: T = undefined;
-            var sectionHeaders: []S = undefined;
-            var programHeaders: []P = undefined;
 
             if (is64Bit) {
                 assert(e_ident[elf.EI_CLASS] == elf.ELFCLASS64);
                 header = try readStruct(elf.Elf64_Ehdr, file, 0);
-
-                sectionHeaders = try readSequenceOfStruct(S, file, header.e_shoff, header.e_shnum, allocator);
-                programHeaders = try readSequenceOfStruct(P, file, header.e_phoff, header.e_phnum, allocator);
             } else {
                 assert(e_ident[elf.EI_CLASS] == elf.ELFCLASS32);
                 header = try readStruct(elf.Elf32_Ehdr, file, 0);
-
-                sectionHeaders = try readSequenceOfStruct(S, file, header.e_shoff, header.e_shnum, allocator);
-                programHeaders = try readSequenceOfStruct(P, file, header.e_phoff, header.e_phnum, allocator);
             }
+
+            const sectionHeaders: []S = try readSequenceOfStruct(S, file, header.e_shoff, header.e_shnum, allocator);
+            const programHeaders: []P = try readSequenceOfStruct(P, file, header.e_phoff, header.e_phnum, allocator);
 
             return .{ .header = header, .file = file, .allocator = allocator, .sectionHeaders = sectionHeaders, .programHeaders = programHeaders };
         }
