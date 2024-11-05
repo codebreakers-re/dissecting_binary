@@ -30,25 +30,26 @@ pub fn main() !void {
     std.debug.print("{s} \n", .{path});
 
     const file = try (if (std.fs.path.isAbsolute(path)) std.fs.openFileAbsolute(path, .{ .mode = .read_only }) else std.fs.cwd().openFile(path, .{ .mode = .read_only }));
+
     defer file.close();
 
     const e_ident = try read_e_ident(file);
 
     assert(is_elf(e_ident));
 
-    var res: ElfReader = undefined;
-
-    switch (e_ident[elf.EI_CLASS]) {
-        elf.ELFCLASS64 => {
-            const bit64 = try ElfFile(elf.Elf64_Ehdr).init(file, allocator);
-            res = ElfReader{ .bit64 = bit64 };
-        },
-        elf.ELFCLASS32 => {
-            const bit32 = try ElfFile(elf.Elf32_Ehdr).init(file, allocator);
-            res = ElfReader{ .bit32 = bit32 };
-        },
-        else => unreachable,
-    }
+    const res: ElfReader = blk: {
+        switch (e_ident[elf.EI_CLASS]) {
+            elf.ELFCLASS64 => {
+                const bit64 = try ElfFile(elf.Elf64_Ehdr).init(file, allocator);
+                break :blk ElfReader{ .bit64 = bit64 };
+            },
+            elf.ELFCLASS32 => {
+                const bit32 = try ElfFile(elf.Elf32_Ehdr).init(file, allocator);
+                break :blk ElfReader{ .bit32 = bit32 };
+            },
+            else => unreachable,
+        }
+    };
 
     defer res.free();
 
